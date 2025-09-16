@@ -160,7 +160,7 @@ def verify_commit(
 ) -> Optional[Dict]:
     """
     验证GitHub提交是否存在，并返回提交详情
-    返回：提交详情（字典）或None（失败）
+    返回：提交详情（字典）或None（失败） 
     """
     # 前置校验：SHA格式检查
     if not re.match(r'^[a-f0-9]{40}$', commit_sha):
