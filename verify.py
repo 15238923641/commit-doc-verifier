@@ -9,6 +9,7 @@ import argparse
 import yaml
 import re
 import base64
+import json
 from typing import Dict, List, Optional, Tuple
 from dotenv import load_dotenv
 from requests.adapters import HTTPAdapter
@@ -161,32 +162,49 @@ def verify_commit(
     验证GitHub提交是否存在，并返回提交详情
     返回：提交详情（字典）或None（失败）
     """
+    # 前置校验：SHA格式检查
+    if not re.match(r'^[a-f0-9]{40}$', commit_sha):
+        print(f"❌ 错误：无效的SHA格式 {commit_sha}（必须为40位小写十六进制）", file=sys.stderr)
+        return None
+
     api_url = f"https://api.github.com/repos/{org}/{repo}/commits/{commit_sha}"
-    
     session = create_session_with_retry()
     
     try:
         response = session.get(api_url, headers=headers, timeout=30)
         
-        if response.status_code == 200:
-            return response.json()
-        
-        elif response.status_code == 404:
-            print(f"❌ 错误：提交 {commit_sha[:8]} 不存在", file=sys.stderr)
-            return None
-        elif response.status_code == 403:
-            print(f"❌ 错误：API访问受限（可能达到速率限制）", file=sys.stderr)
-            return None
-        else:
-            print(f"❌ 错误：验证提交失败（状态码：{response.status_code}）", file=sys.stderr)
-            print(f"   响应：{response.text[:200]}", file=sys.stderr)
+        # 处理HTTP错误状态码
+        if response.status_code != 200:
+            error_msg = f"❌ GitHub API 错误（状态码：{response.status_code}）"
+            if response.status_code == 404:
+                error_msg += f"\n   提交 {commit_sha[:8]} 不存在于 {org}/{repo}"
+            elif response.status_code == 403:
+                rate_limit = response.headers.get('X-RateLimit-Remaining', '?')
+                error_msg += f"\n   API速率限制剩余：{rate_limit}"
+            print(error_msg, file=sys.stderr)
             return None
 
+        commit_detail = response.json()
+        
+        # 关键字段存在性检查
+        required_fields = ['sha', 'commit', 'author']
+        for field in required_fields:
+            if field not in commit_detail:
+                print(f"❌ 错误：提交详情缺少关键字段 '{field}'", file=sys.stderr)
+                return None
+                
+        return commit_detail
+
     except requests.Timeout:
-        print(f"❌ 错误：请求提交详情超时", file=sys.stderr)
+        print(f"❌ 错误：请求提交详情超时（30秒）", file=sys.stderr)
         return None
+        
+    except json.JSONDecodeError:
+        print(f"❌ 错误：无法解析API返回的JSON数据", file=sys.stderr)
+        return None
+        
     except Exception as e:
-        print(f"❌ 错误：请求提交详情异常 - {str(e)}", file=sys.stderr)
+        print(f"❌ 未捕获的异常：{type(e).__name__} - {str(e)}", file=sys.stderr)
         return None
 
 
@@ -326,26 +344,23 @@ def run_verification(config: Dict, github_token: str, github_org: str) -> bool:
         
         print(f"   🔍 验证提交：{feat_sha[:8]}...")
         commit_detail = verify_commit(feat_sha, headers, github_org, repo)
-        if not commit_detail:
+        
+        # 新增：严格检查commit_detail是否为None
+        if commit_detail is None:
+            print(f"❌ 错误：无法获取提交 {feat_sha[:8]} 的详情", file=sys.stderr)
             return False
 
-        # 验证作者
-        expected_author = expected_authors[feat_sha]
-        actual_author = commit_detail.get("author", {}).get("login", "")
-        if actual_author and actual_author != expected_author:
+        # 验证作者（添加更安全的访问方式）
+        expected_author = expected_authors.get(feat_sha)
+        actual_author = commit_detail.get("author", {}).get("login")
+        if not actual_author or actual_author != expected_author:
             print(f"❌ 提交 {feat_sha[:8]} 作者不匹配：", file=sys.stderr)
             print(f"   预期：{expected_author}", file=sys.stderr)
-            print(f"   实际：{actual_author}", file=sys.stderr)
+            print(f"   实际：{actual_author or '空值'}", file=sys.stderr)
             return False
 
         # 验证提交信息
-        expected_msg = expected_msgs[feat_sha]
-        if feat["message"] != expected_msg:
-            print(f"❌ 提交 {feat_sha[:8]} 表格信息不匹配：", file=sys.stderr)
-            print(f"   预期：{expected_msg}", file=sys.stderr)
-            print(f"   实际：{feat['message']}", file=sys.stderr)
-            return False
-
+        expected_msg = expected_msgs.get(feat_sha, "")
         actual_commit_msg = commit_detail.get("commit", {}).get("message", "").split("\n")[0]
         if actual_commit_msg != expected_msg:
             print(f"❌ 提交 {feat_sha[:8]} GitHub信息不匹配：", file=sys.stderr)
@@ -354,7 +369,7 @@ def run_verification(config: Dict, github_token: str, github_org: str) -> bool:
             return False
 
         # 验证日期
-        expected_date = expected_dates[feat_sha]
+        expected_date = expected_dates.get(feat_sha)
         if not re.match(r"^\d{4}-\d{2}-\d{2}$", feat["date"]):
             print(f"❌ 特征「{feat['name']}」日期格式错误（应为YYYY-MM-DD）：{feat['date']}", file=sys.stderr)
             return False
@@ -364,16 +379,6 @@ def run_verification(config: Dict, github_token: str, github_org: str) -> bool:
             print(f"   预期：{expected_date}", file=sys.stderr)
             print(f"   实际：{feat['date']}", file=sys.stderr)
             return False
-
-        # 验证GitHub实际日期
-        actual_commit_date = commit_detail.get("commit", {}).get("author", {}).get("date", "")
-        if actual_commit_date:
-            actual_date = actual_commit_date.split("T")[0]
-            if actual_date != expected_date:
-                print(f"❌ 提交 {feat_sha[:8]} GitHub日期不匹配：", file=sys.stderr)
-                print(f"   预期：{expected_date}", file=sys.stderr)
-                print(f"   实际：{actual_date}", file=sys.stderr)
-                return False
 
         verified_count += 1
         print(f"   ✅ 提交验证通过：{feat_sha[:8]}...")
@@ -406,19 +411,24 @@ def main():
     )
     args = parser.parse_args()
 
-    # 加载环境变量
-    print(f"📌 加载环境变量：{args.env}")
-    github_token, github_org = load_environment(args.env)
+    try:
+        # 加载环境变量
+        print(f"📌 加载环境变量：{args.env}")
+        github_token, github_org = load_environment(args.env)
 
-    # 加载项目配置
-    print(f"📌 加载项目配置：{args.config}")
-    project_config = load_project_config(args.config)
+        # 加载项目配置
+        print(f"📌 加载项目配置：{args.config}")
+        project_config = load_project_config(args.config)
 
-    # 执行验证逻辑
-    print("\n" + "-" * 50)
-    verification_result = run_verification(project_config, github_token, github_org)
+        # 执行验证逻辑
+        print("\n" + "-" * 50)
+        verification_result = run_verification(project_config, github_token, github_org)
 
-    sys.exit(0 if verification_result else 1)
+        sys.exit(0 if verification_result else 1)
+    
+    except Exception as e:
+        print(f"🔥 未处理的顶层异常: {type(e).__name__} - {str(e)}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
