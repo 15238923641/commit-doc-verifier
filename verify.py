@@ -60,7 +60,6 @@ def load_environment(env_path: str) -> Tuple[str, str]:
 
     return github_token, github_org
 
-
 def load_project_config(config_path: str) -> Dict:
     """
     加载项目配置（从YAML文件）
@@ -99,7 +98,6 @@ def load_project_config(config_path: str) -> Dict:
         print(f"❌ 错误：加载配置文件失败 - {str(e)}", file=sys.stderr)
         sys.exit(1)
 
-
 def get_github_headers(token: str) -> Dict[str, str]:
     """生成GitHub API请求头"""
     return {
@@ -107,7 +105,6 @@ def get_github_headers(token: str) -> Dict[str, str]:
         "Accept": GITHUB_API_VERSION,
         "User-Agent": "GitHub-Commit-Verifier/1.0"
     }
-
 
 def fetch_github_file(
     file_path: str,
@@ -151,7 +148,6 @@ def fetch_github_file(
         print(f"❌ 错误：请求GitHub API异常 - {str(e)}", file=sys.stderr)
         return None
 
-
 def verify_commit(
     commit_sha: str,
     headers: Dict[str, str],
@@ -187,17 +183,18 @@ def verify_commit(
         commit_detail = response.json()
         
         # 关键字段存在性检查
-        required_fields = ['sha', 'commit', 'author']
+        required_fields = ['sha', 'commit']
         for field in required_fields:
             if field not in commit_detail:
                 print(f"❌ 错误：提交详情缺少关键字段 '{field}'", file=sys.stderr)
                 return None
         
-        # 确保author字段结构正确
-        if not isinstance(commit_detail.get('author'), dict):
-            print(f"❌ 错误：提交详情的author字段不是字典格式", file=sys.stderr)
-            return None
-            
+        # 处理author字段可能为null的情况
+        if 'author' in commit_detail and commit_detail['author'] is not None:
+            if not isinstance(commit_detail['author'], dict):
+                print(f"❌ 错误：提交详情的author字段不是字典格式", file=sys.stderr)
+                return None
+                
         return commit_detail
 
     except requests.Timeout:
@@ -211,7 +208,6 @@ def verify_commit(
     except Exception as e:
         print(f"❌ 未捕获的异常：{type(e).__name__} - {str(e)}", file=sys.stderr)
         return None
-
 
 # ==========================
 # 核心逻辑
@@ -263,7 +259,6 @@ def parse_feature_table(content: str, table_header: str) -> List[Dict]:
                 features.append(feature)
     
     return features
-
 
 def run_verification(config: Dict, github_token: str, github_org: str) -> bool:
     """
@@ -363,12 +358,20 @@ def run_verification(config: Dict, github_token: str, github_org: str) -> bool:
 
         # 验证作者（安全访问嵌套字典）
         expected_author = expected_authors.get(feat_sha)
-        actual_author = commit_detail.get("author", {}).get("login")
-        if not actual_author or actual_author != expected_author:
-            print(f"❌ 提交 {feat_sha[:8]} 作者不匹配：", file=sys.stderr)
-            print(f"   预期：{expected_author}", file=sys.stderr)
-            print(f"   实际：{actual_author or '空值'}", file=sys.stderr)
-            return False
+        
+        # 处理author可能为null的情况
+        if commit_detail.get('author') is None:
+            if expected_author is not None:
+                print(f"❌ 错误：提交 {feat_sha[:8]} 预期作者为 {expected_author}，但实际没有关联用户", file=sys.stderr)
+                return False
+            print(f"   ⚠️ 警告：提交 {feat_sha[:8]} 没有关联GitHub用户（配置允许此情况）")
+        else:
+            actual_author = commit_detail.get("author", {}).get("login")
+            if not actual_author or actual_author != expected_author:
+                print(f"❌ 提交 {feat_sha[:8]} 作者不匹配：", file=sys.stderr)
+                print(f"   预期：{expected_author}", file=sys.stderr)
+                print(f"   实际：{actual_author or '空值'}", file=sys.stderr)
+                return False
 
         # 验证提交信息
         expected_msg = expected_msgs.get(feat_sha, "")
@@ -401,7 +404,6 @@ def run_verification(config: Dict, github_token: str, github_org: str) -> bool:
     print("🎉 所有验证步骤均通过！")
     print("=" * 60)
     return True
-
 
 # ==========================
 # 入口函数
@@ -440,7 +442,6 @@ def main():
     except Exception as e:
         print(f"🔥 未处理的顶层异常: {type(e).__name__} - {str(e)}", file=sys.stderr)
         sys.exit(1)
-
 
 if __name__ == "__main__":
     main()
