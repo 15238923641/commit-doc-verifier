@@ -288,10 +288,14 @@ def run_verification(config: Dict, github_token: str, github_org: str) -> bool:
 
     # 步骤2：验证文档必填章节
     print(f"\n2. 📝 验证文档章节...")
+    missing_sections = [s for s in required_sections if s not in doc_content]
+    if missing_sections:
+        print(f"❌ 缺失必填章节：", file=sys.stderr)
+        for section in missing_sections:
+            print(f"   - {section}", file=sys.stderr)
+        return False
+    
     for section in required_sections:
-        if section not in doc_content:
-            print(f"❌ 缺失必填章节：「{section}」", file=sys.stderr)
-            return False
         print(f"   ✅ 章节存在：{section}")
     print(f"✅ 所有 {len(required_sections)} 个必填章节均存在")
 

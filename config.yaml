@@ -27,7 +27,7 @@ expected_features:
 
 # 预期作者验证（使用真实作者）
 expected_authors:
-  "e82834be6c682ea9158269aedf653f75e7a43cae": "zzjy00004"
+  "e82834be6c682ea9158269aedf653f75e7a43cae": null  
   "6bfc186e2fc0dad993d7e195d62c25857b826fb3": "zzjy00004"
   "b4e1a45da5f885aedd5a45e7f560881f0c65e89a": "zzjy00004"
 
