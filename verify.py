@@ -209,9 +209,6 @@ def verify_commit(
         print(f"❌ 未捕获的异常：{type(e).__name__} - {str(e)}", file=sys.stderr)
         return None
 
-# ==========================
-# 核心逻辑
-# ==========================
 def parse_feature_table(content: str, table_header: str) -> List[Dict]:
     """
     解析Markdown文档中的特征表格
@@ -363,6 +360,12 @@ def run_verification(config: Dict, github_token: str, github_org: str) -> bool:
         if commit_detail.get('author') is None:
             if expected_author is not None:
                 print(f"❌ 错误：提交 {feat_sha[:8]} 预期作者为 {expected_author}，但实际没有关联用户", file=sys.stderr)
+                print(f"   可能原因：", file=sys.stderr)
+                print(f"   - 提交是通过本地Git命令行创建的", file=sys.stderr)
+                print(f"   - 提交者的Git配置没有正确设置GitHub用户名", file=sys.stderr)
+                print(f"   解决方案：", file=sys.stderr)
+                print(f"   - 如果允许这种情况，请在配置中将 expected_authors.{feat_sha} 设置为 null", file=sys.stderr)
+                print(f"   - 否则请确保提交关联了正确的GitHub用户", file=sys.stderr)
                 return False
             print(f"   ⚠️ 警告：提交 {feat_sha[:8]} 没有关联GitHub用户（配置允许此情况）")
         else:
@@ -405,9 +408,6 @@ def run_verification(config: Dict, github_token: str, github_org: str) -> bool:
     print("=" * 60)
     return True
 
-# ==========================
-# 入口函数
-# ==========================
 def main():
     parser = argparse.ArgumentParser(description="GitHub功能提交跟踪验证脚本")
     parser.add_argument(
