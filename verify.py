@@ -371,7 +371,6 @@ def run_verification(config: Dict, github_token: str, github_org: str) -> bool:
                 print(f"   - 如果允许这种情况，请在配置中将 expected_authors.{feat_sha} 设置为 null", file=sys.stderr)
                 print(f"   - 否则请确保提交关联了正确的GitHub用户", file=sys.stderr)
                 return False
-            print(f"   ⚠️ 警告：提交 {feat_sha[:8]} 没有关联GitHub用户（配置允许此情况）")
         else:
             actual_author = commit_detail.get("author", {}).get("login")
             if not actual_author or actual_author != expected_author:
