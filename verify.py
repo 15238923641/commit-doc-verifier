@@ -192,7 +192,12 @@ def verify_commit(
             if field not in commit_detail:
                 print(f"❌ 错误：提交详情缺少关键字段 '{field}'", file=sys.stderr)
                 return None
-                
+        
+        # 确保author字段结构正确
+        if not isinstance(commit_detail.get('author'), dict):
+            print(f"❌ 错误：提交详情的author字段不是字典格式", file=sys.stderr)
+            return None
+            
         return commit_detail
 
     except requests.Timeout:
@@ -343,14 +348,20 @@ def run_verification(config: Dict, github_token: str, github_org: str) -> bool:
             continue
         
         print(f"   🔍 验证提交：{feat_sha[:8]}...")
+        
+        # 先验证SHA格式
+        if not re.match(r'^[a-f0-9]{40}$', feat_sha):
+            print(f"❌ 错误：无效的SHA格式 {feat_sha}（必须为40位小写十六进制）", file=sys.stderr)
+            return False
+            
         commit_detail = verify_commit(feat_sha, headers, github_org, repo)
         
-        # 新增：严格检查commit_detail是否为None
-        if commit_detail is None:
-            print(f"❌ 错误：无法获取提交 {feat_sha[:8]} 的详情", file=sys.stderr)
+        # 严格检查commit_detail是否为None或无效
+        if not commit_detail or not isinstance(commit_detail, dict):
+            print(f"❌ 错误：无法获取有效的提交详情 {feat_sha[:8]}", file=sys.stderr)
             return False
 
-        # 验证作者（添加更安全的访问方式）
+        # 验证作者（安全访问嵌套字典）
         expected_author = expected_authors.get(feat_sha)
         actual_author = commit_detail.get("author", {}).get("login")
         if not actual_author or actual_author != expected_author:
