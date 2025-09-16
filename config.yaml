@@ -1,7 +1,7 @@
 # GitHub仓库配置
-target_repo: "commit-doc-verifier"          # 目标仓库名称
-target_branch: "main"                  # 目标分支名称
-feature_doc_path: "docs/features.md"   # 特征文档路径
+target_repo: "commit-doc-verifier"
+target_branch: "main"
+feature_doc_path: "docs/features.md"
 
 # 表格配置
 table_header: "| 功能名称 | SHA | 作者 | 分支 | 日期 | 改动文件数 | 提交消息 |"
@@ -15,29 +15,30 @@ required_sections:
   - "## 提交统计"
   - "## 质量指标"
   - "## 后续计划"
+
 # 特征数量验证
 min_feature_count: 3
 
-# 预期特征验证
+# 预期特征验证（与features.md表格完全匹配）
 expected_features:
-  "用户登录功能": "abc123def456abc123def456abc123def456abc123"
-  "支付集成功能": "def456abc123def456abc123def456abc123def456"
-  "数据分析面板": "123abc456def123abc456def123abc456def123abc"
+  "用户认证功能": "a1b2c3d4"
+  "数据导出功能": "e5f6g7h8"
+  "报表生成功能": "i9j0k1l2"
 
-# 预期作者验证
+# 预期作者验证（SHA必须与表格一致）
 expected_authors:
-  "abc123def456abc123def456abc123def456abc123": "john-doe"
-  "def456abc123def456abc123def456abc123def456": "jane-smith"
-  "123abc456def123abc456def123abc456def123abc": "alex-wong"
+  "a1b2c3d4": "johnsmith"
+  "e5f6g7h8": "alicejones"
+  "i9j0k1l2": "bobwilson"
 
-# 预期消息验证
+# 预期消息验证（必须完全匹配表格内容）
 expected_messages:
-  "abc123def456abc123def456abc123def456abc123": "feat: 实现用户登录功能"
-  "def456abc123def456abc123def456abc123def456": "feat: 集成支付网关API"
-  "123abc456def123abc456def123abc456def123abc": "feat: 添加数据分析面板"
+  "a1b2c3d4": "实现用户登录和注册功能"
+  "e5f6g7h8": "添加CSV数据导出功能"
+  "i9j0k1l2": "实现月度报表自动生成"
 
-# 预期日期验证
+# 预期日期验证（格式必须为YYYY-MM-DD）
 expected_dates:
-  "abc123def456abc123def456abc123def456abc123": "2024-01-15"
-  "def456abc123def456abc123def456abc123def456": "2024-01-16"
-  "123abc456def123abc456def123abc456def123abc": "2024-01-17"
+  "a1b2c3d4": "2024-01-15"
+  "e5f6g7h8": "2024-01-16"
+  "i9j0k1l2": "2024-01-17"
