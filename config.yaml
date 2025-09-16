@@ -1,0 +1,40 @@
+# GitHub仓库配置
+target_repo: "commit-doc-verifier"          # 目标仓库名称
+target_branch: "main"                  # 目标分支名称
+feature_doc_path: "docs/features.md"   # 特征文档路径
+
+# 表格配置
+table_header: "| 功能名称 | SHA | 作者 | 分支 | 日期 | 改动文件数 | 提交消息 |"
+
+# 文档结构验证
+required_sections:
+  - "## 功能提交跟踪"
+  - "### 功能列表"
+  - "### 统计信息"
+
+# 特征数量验证
+min_feature_count: 3
+
+# 预期特征验证
+expected_features:
+  "用户登录功能": "abc123def456abc123def456abc123def456abc123"
+  "支付集成功能": "def456abc123def456abc123def456abc123def456"
+  "数据分析面板": "123abc456def123abc456def123abc456def123abc"
+
+# 预期作者验证
+expected_authors:
+  "abc123def456abc123def456abc123def456abc123": "john-doe"
+  "def456abc123def456abc123def456abc123def456": "jane-smith"
+  "123abc456def123abc456def123abc456def123abc": "alex-wong"
+
+# 预期消息验证
+expected_messages:
+  "abc123def456abc123def456abc123def456abc123": "feat: 实现用户登录功能"
+  "def456abc123def456abc123def456abc123def456": "feat: 集成支付网关API"
+  "123abc456def123abc456def123abc456def123abc": "feat: 添加数据分析面板"
+
+# 预期日期验证
+expected_dates:
+  "abc123def456abc123def456abc123def456abc123": "2024-01-15"
+  "def456abc123def456abc123def456abc123def456": "2024-01-16"
+  "123abc456def123abc456def123abc456def123abc": "2024-01-17"
